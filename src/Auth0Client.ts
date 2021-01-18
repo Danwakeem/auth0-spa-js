@@ -159,15 +159,20 @@ export default class Auth0Client {
     this.sessionCheckExpiryDays =
       options.sessionCheckExpiryDays || DEFAULT_SESSION_CHECK_EXPIRY_DAYS;
 
-    if (!cacheFactory(this.cacheLocation)) {
+    if (this.cacheLocation === 'custom' && !options.customCache) {
+      throw new Error('Cache location custom requires the customCache option');
+    } else if (this.cacheLocation === 'custom') {
+      this.cache = new options.customCache();
+    } else if (!cacheFactory(this.cacheLocation)) {
       throw new Error(`Invalid cache location "${this.cacheLocation}"`);
+    } else {
+      this.cache = cacheFactory(this.cacheLocation)();
     }
 
     const transactionStorage = options.useCookiesForTransactions
       ? this.cookieStorage
       : SessionStorage;
 
-    this.cache = cacheFactory(this.cacheLocation)();
     this.scope = this.options.scope;
     this.transactionManager = new TransactionManager(transactionStorage);
     this.domainUrl = `https://${this.options.domain}`;
@@ -400,7 +405,7 @@ export default class Auth0Client {
       client_id: this.options.client_id
     };
 
-    this.cache.save(cacheEntry);
+    await this.cache.save(cacheEntry);
 
     this.cookieStorage.save('auth0.is.authenticated', true, {
       daysUntilExpire: this.sessionCheckExpiryDays
@@ -428,7 +433,7 @@ export default class Auth0Client {
     const audience = options.audience || this.options.audience || 'default';
     const scope = getUniqueScopes(this.defaultScope, this.scope, options.scope);
 
-    const cache = this.cache.get(
+    const cache = await this.cache.get(
       new CacheKey({
         client_id: this.options.client_id,
         audience,
@@ -456,7 +461,7 @@ export default class Auth0Client {
     const audience = options.audience || this.options.audience || 'default';
     const scope = getUniqueScopes(this.defaultScope, this.scope, options.scope);
 
-    const cache = this.cache.get(
+    const cache = await this.cache.get(
       new CacheKey({
         client_id: this.options.client_id,
         audience,
@@ -552,7 +557,7 @@ export default class Auth0Client {
       client_id: this.options.client_id
     };
 
-    this.cache.save(cacheEntry);
+    await this.cache.save(cacheEntry);
 
     this.cookieStorage.save('auth0.is.authenticated', true, {
       daysUntilExpire: this.sessionCheckExpiryDays
@@ -643,8 +648,8 @@ export default class Auth0Client {
   private async _getTokenSilently(options: GetTokenSilentlyOptions = {}) {
     const { ignoreCache, ...getTokenOptions } = options;
 
-    const getAccessTokenFromCache = () => {
-      const cache = this.cache.get(
+    const getAccessTokenFromCache = async () => {
+      const cache = await this.cache.get(
         new CacheKey({
           scope: getTokenOptions.scope,
           audience: getTokenOptions.audience || 'default',
@@ -659,7 +664,7 @@ export default class Auth0Client {
     // Check the cache before acquiring the lock to avoid the latency of
     // `lock.acquireLock` when the cache is populated.
     if (!ignoreCache) {
-      let accessToken = getAccessTokenFromCache();
+      let accessToken = await getAccessTokenFromCache();
       if (accessToken) {
         return accessToken;
       }
@@ -675,7 +680,7 @@ export default class Auth0Client {
         // Check the cache a second time, because it may have been populated
         // by a previous call while this call was waiting to acquire the lock.
         if (!ignoreCache) {
-          let accessToken = getAccessTokenFromCache();
+          let accessToken = await getAccessTokenFromCache();
           if (accessToken) {
             return accessToken;
           }
@@ -685,7 +690,10 @@ export default class Auth0Client {
           ? await this._getTokenUsingRefreshToken(getTokenOptions)
           : await this._getTokenFromIFrame(getTokenOptions);
 
-        this.cache.save({ client_id: this.options.client_id, ...authResult });
+        await this.cache.save({
+          client_id: this.options.client_id,
+          ...authResult
+        });
 
         this.cookieStorage.save('auth0.is.authenticated', true, {
           daysUntilExpire: this.sessionCheckExpiryDays
@@ -731,7 +739,7 @@ export default class Auth0Client {
 
     await this.loginWithPopup(options, config);
 
-    const cache = this.cache.get(
+    const cache = await this.cache.get(
       new CacheKey({
         scope: options.scope,
         audience: options.audience || 'default',
@@ -900,7 +908,7 @@ export default class Auth0Client {
       options.scope
     );
 
-    const cache = this.cache.get(
+    const cache = await this.cache.get(
       new CacheKey({
         scope: options.scope,
         audience: options.audience || 'default',

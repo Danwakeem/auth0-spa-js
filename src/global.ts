@@ -1,3 +1,5 @@
+import { ICache } from './cache';
+
 /**
  * @ignore
  */
@@ -105,12 +107,19 @@ export interface Auth0ClientOptions extends BaseLoginOptions {
   leeway?: number;
 
   /**
-   * The location to use when storing cache data. Valid values are `memory` or `localstorage`.
+   * The location to use when storing cache data. Valid values are `memory`, `localstorage`, or `custom`.
    * The default setting is `memory`.
    *
    * Read more about [changing storage options in the Auth0 docs](https://auth0.com/docs/libraries/auth0-single-page-app-sdk#change-storage-options)
    */
   cacheLocation?: CacheLocation;
+
+  /**
+   * This will replace the cache mechanism with your own custom cache.
+   *
+   * Read more about [changing storage options in the Auth0 docs](https://auth0.com/docs/libraries/auth0-single-page-app-sdk#change-storage-options)
+   */
+  customCache?: any;
 
   /**
    * If true, refresh tokens are used to fetch new access tokens from the Auth0 server. If false, the legacy technique of using a hidden iframe and the `authorization_code` grant with `prompt=none` is used.
@@ -170,7 +179,7 @@ export interface Auth0ClientOptions extends BaseLoginOptions {
 /**
  * The possible locations where tokens can be stored
  */
-export type CacheLocation = 'memory' | 'localstorage';
+export type CacheLocation = 'memory' | 'localstorage' | 'custom';
 
 /**
  * @ignore
